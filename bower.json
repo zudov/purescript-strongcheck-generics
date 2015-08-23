@@ -1,0 +1,17 @@
+{
+  "name": "purescript-strongcheck-generics",
+  "version": "0.0.0",
+  "moduleType": [
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-generics": "zudov/purescript-generics#spine-validation",
+    "purescript-strongcheck": "^0.12.1"
+  }
+}
