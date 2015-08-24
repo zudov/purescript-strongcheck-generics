@@ -12,7 +12,7 @@ import Math
 import Control.Lazy         (defer)
 import Control.Plus         (empty)
 import Control.Bind
-import Data.Array           (nub, sortBy, uncons, zipWith, length, (!!))
+import Data.Array           (nub, sortBy, uncons, zipWith, length, (!!), filter, (:))
 import Data.Int             (toNumber)
 import Data.Foldable        (all, find)
 import Data.Generic
@@ -43,7 +43,7 @@ genGenericSignature size = resize (size - 1) $ oneOf sigArray [sigProd, sigRecor
 genGenericSpine :: GenericSignature -> Gen GenericSpine
 genGenericSpine = genGenericSpine' empty
 
-genGenericSpine' :: L.List String -> GenericSignature -> Gen GenericSpine
+genGenericSpine' :: Array String -> GenericSignature -> Gen GenericSpine
 genGenericSpine' trail SigBoolean     = SBoolean <$> arbitrary
 genGenericSpine' trail SigNumber      = SNumber  <$> arbitrary
 genGenericSpine' trail SigInt         = SInt     <$> arbitrary
@@ -53,10 +53,12 @@ genGenericSpine' trail (SigProd sigs) = do
   alt =<< maybe empty (\cons -> frequency cons.head (L.toList cons.tail))
                       (uncons $ map (map pure) ctors)
   where
-    ctors = sigs <#> (\sig -> Tuple (6.0 / (5.0 + toNumber (L.length $ L.filter ((==) sig.sigConstructor) trail))) sig)
+    trailCount sig = length $ filter ((==) sig.sigConstructor) trail
+    probability sig = 6.0 / (5.0 + toNumber (trailCount sig))
+    ctors = sigs <#> (\sig -> Tuple (probability sig) sig)
     alt altSig = SProd altSig.sigConstructor
-                   <$> traverse (map const <<< genGenericSpine' (L.(:) altSig.sigConstructor trail) <<< (unit #))
-                                    altSig.sigValues
+                   <$> traverse (map const <<< genGenericSpine' (altSig.sigConstructor : trail) <<< (unit #))
+                                altSig.sigValues
 genGenericSpine' trail (SigRecord fieldSigs) =
   SRecord <$> for fieldSigs \field -> do val <- genGenericSpine' trail (field.recValue unit)
                                          pure $ field { recValue = const val }
