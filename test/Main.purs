@@ -29,9 +29,16 @@ assert_uninhabited :: Boolean
 assert_uninhabited = null $ runTrampoline $ collectAll state (gArbitrary :: Gen Uninhabited)
   where state = GenState { seed: 42.0, size: 42 }
 
+data MyList a = Nil | Cons (MyList a)
+derive instance genericMyList :: (Generic a) => Generic (MyList a)
+
+instance showMyList :: (Show a, Generic a) => Show (MyList a) where
+  show = gShow
+
 props_gArbitrary = do
   quickCheck prop_arbitrary_foo_is_foo
   assert assert_uninhabited
+  showSample (gArbitrary :: Gen (MyList Int))
 
 main = do
   props_gArbitrary

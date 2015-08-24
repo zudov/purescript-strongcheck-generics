@@ -8,16 +8,20 @@ module Test.StrongCheck.Generic
 
 import Prelude
 
+import Control.Lazy         (defer)
+import Control.Plus         (empty)
+import Control.Bind
+import Data.Array           (nub, sortBy, uncons, zipWith, length, (!!))
+import Data.Int             (toNumber)
+import Data.Foldable        (all, find)
 import Data.Generic
-import Data.List (toList)
-import Data.Array (uncons, nub, zipWith, sortBy)
-import Control.Plus (empty)
+import Data.List            (toList)
 import Data.Maybe
-import Data.Maybe.Unsafe (fromJust)
-import Data.Foldable (all, find)
-import Data.Traversable (traverse, for)
-import Test.StrongCheck (Arbitrary, arbitrary)
-import Test.StrongCheck.Gen (Gen(), Size(), resize, sized, arrayOf, elements, oneOf)
+import Data.Maybe.Unsafe    (fromJust)
+import Data.Tuple
+import Data.Traversable     (for, traverse)
+import Test.StrongCheck     (Arbitrary, arbitrary)
+import Test.StrongCheck.Gen
 
 genGenericSignature :: Size -> Gen GenericSignature
 genGenericSignature size | size > 5 = genGenericSignature 5
@@ -42,9 +46,10 @@ genGenericSpine SigInt         = SInt     <$> arbitrary
 genGenericSpine SigString      = SString  <$> arbitrary
 genGenericSpine (SigArray sig) = SArray   <$> arrayOf (const <$> genGenericSpine (sig unit))
 genGenericSpine (SigProd sigs) =
-  maybe empty (\alts -> oneOf alts.head alts.tail) $ uncons $ map alt sigs
-  where alt altSig = SProd altSig.sigConstructor
-                       <$> traverse (map const <<< genGenericSpine <<< (unit #))
+  alt =<< maybe empty (\cons -> elements cons.head (toList cons.tail)) (uncons sigs)
+  where
+    alt altSig = SProd altSig.sigConstructor
+                   <$> traverse (map const <<< genGenericSpine <<< (unit #))
                                     altSig.sigValues
 genGenericSpine (SigRecord fieldSigs) =
   SRecord <$> for fieldSigs \field -> do val <- genGenericSpine (field.recValue unit)
