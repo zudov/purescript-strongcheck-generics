@@ -32,13 +32,20 @@ assert_uninhabited = null $ runTrampoline $ collectAll state (gArbitrary :: Gen 
 data MyList a = Nil | Cons (MyList a)
 derive instance genericMyList :: (Generic a) => Generic (MyList a)
 
-instance showMyList :: (Show a, Generic a) => Show (MyList a) where
+instance showMyList :: (Generic a) => Show (MyList a) where
+  show = gShow
+
+data Tree a = Leaf | Branch { value :: a, kids :: Array (Tree a) }
+derive instance genericTree :: (Generic a) => Generic (Tree a)
+
+instance showTree :: (Generic a) => Show (Tree a) where
   show = gShow
 
 props_gArbitrary = do
   quickCheck prop_arbitrary_foo_is_foo
   assert assert_uninhabited
   showSample (gArbitrary :: Gen (MyList Int))
+  showSample (resize 5 $ gArbitrary :: Gen (Tree Int))
 
 main = do
   props_gArbitrary
