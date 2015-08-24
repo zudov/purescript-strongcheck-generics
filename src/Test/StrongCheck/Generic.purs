@@ -2,6 +2,7 @@ module Test.StrongCheck.Generic
   ( genGenericSignature
   , genGenericSpine
   , gArbitrary
+  , gCoarbitrary
   , GenericValue()
   , runGenericValue
   ) where
@@ -14,14 +15,15 @@ import Control.Plus         (empty)
 import Control.Bind
 import Data.Array           (nub, sortBy, uncons, zipWith, length, (!!), filter, (:))
 import Data.Int             (toNumber)
-import Data.Foldable        (all, find)
+import Data.Foldable
+import Data.Monoid.Endo
 import Data.Generic
 import qualified Data.List  as L
 import Data.Maybe
 import Data.Maybe.Unsafe    (fromJust)
 import Data.Tuple
 import Data.Traversable     (for, traverse)
-import Test.StrongCheck     (Arbitrary, arbitrary)
+import Test.StrongCheck     (Arbitrary, arbitrary, CoArbitrary, coarbitrary)
 import Test.StrongCheck.Gen
 
 genGenericSignature :: Size -> Gen GenericSignature
@@ -65,6 +67,20 @@ genGenericSpine' trail (SigRecord fieldSigs) =
 
 gArbitrary :: forall a. (Generic a) => Gen a
 gArbitrary = fromJust <<< fromSpine <$> genGenericSpine (toSignature (Proxy :: Proxy a))
+
+gCoarbitrary :: forall a r. (Generic a) => a -> Gen r -> Gen r
+gCoarbitrary = go <<< toSpine
+  where
+    applyAll :: forall f a. (Foldable f) => f (a -> a) -> a -> a
+    applyAll = runEndo <<< foldMap Endo
+    go :: GenericSpine -> Gen r -> Gen r
+    go (SArray ss) = applyAll (map (go <<< ($ unit)) ss)
+    go (SBoolean b) = coarbitrary b
+    go (SString s) = coarbitrary s
+    go (SInt i)    = coarbitrary i
+    go (SNumber n) = coarbitrary n
+    go (SRecord fs) = applyAll (map (\f -> coarbitrary f.recLabel <<< go (f.recValue unit)) fs)
+    go (SProd ctor ss) = coarbitrary ctor <<< applyAll (map (go <<< ($ unit)) ss)
 
 newtype GenericValue = GenericValue { signature :: GenericSignature
                                     , spine     :: GenericSpine
