@@ -8,6 +8,7 @@ module Test.StrongCheck.Generic
 
 import Prelude
 
+import Math
 import Control.Lazy         (defer)
 import Control.Plus         (empty)
 import Control.Bind
@@ -15,7 +16,7 @@ import Data.Array           (nub, sortBy, uncons, zipWith, length, (!!))
 import Data.Int             (toNumber)
 import Data.Foldable        (all, find)
 import Data.Generic
-import Data.List            (toList)
+import qualified Data.List  as L
 import Data.Maybe
 import Data.Maybe.Unsafe    (fromJust)
 import Data.Tuple
@@ -26,7 +27,7 @@ import Test.StrongCheck.Gen
 genGenericSignature :: Size -> Gen GenericSignature
 genGenericSignature size | size > 5 = genGenericSignature 5
 genGenericSignature 0 = elements SigNumber
-                                 (toList [ SigInt, SigString, SigBoolean ])
+                                 (L.toList [ SigInt, SigString, SigBoolean ])
 genGenericSignature size = resize (size - 1) $ oneOf sigArray [sigProd, sigRecord]
   where
     sigArray = SigArray <<< const <$> sized genGenericSignature
@@ -40,19 +41,24 @@ genGenericSignature size = resize (size - 1) $ oneOf sigArray [sigProd, sigRecor
       pure $ SigProd $ zipWith { sigConstructor: _, sigValues: _ } constrs values
 
 genGenericSpine :: GenericSignature -> Gen GenericSpine
-genGenericSpine SigBoolean     = SBoolean <$> arbitrary
-genGenericSpine SigNumber      = SNumber  <$> arbitrary
-genGenericSpine SigInt         = SInt     <$> arbitrary
-genGenericSpine SigString      = SString  <$> arbitrary
-genGenericSpine (SigArray sig) = SArray   <$> arrayOf (const <$> genGenericSpine (sig unit))
-genGenericSpine (SigProd sigs) =
-  alt =<< maybe empty (\cons -> elements cons.head (toList cons.tail)) (uncons sigs)
+genGenericSpine = genGenericSpine' empty
+
+genGenericSpine' :: L.List String -> GenericSignature -> Gen GenericSpine
+genGenericSpine' trail SigBoolean     = SBoolean <$> arbitrary
+genGenericSpine' trail SigNumber      = SNumber  <$> arbitrary
+genGenericSpine' trail SigInt         = SInt     <$> arbitrary
+genGenericSpine' trail SigString      = SString  <$> arbitrary
+genGenericSpine' trail (SigArray sig) = SArray   <$> arrayOf (const <$> genGenericSpine' trail (sig unit))
+genGenericSpine' trail (SigProd sigs) = do
+  alt =<< maybe empty (\cons -> frequency cons.head (L.toList cons.tail))
+                      (uncons $ map (map pure) ctors)
   where
+    ctors = sigs <#> (\sig -> Tuple (6.0 / (5.0 + toNumber (L.length $ L.filter ((==) sig.sigConstructor) trail))) sig)
     alt altSig = SProd altSig.sigConstructor
-                   <$> traverse (map const <<< genGenericSpine <<< (unit #))
+                   <$> traverse (map const <<< genGenericSpine' (L.(:) altSig.sigConstructor trail) <<< (unit #))
                                     altSig.sigValues
-genGenericSpine (SigRecord fieldSigs) =
-  SRecord <$> for fieldSigs \field -> do val <- genGenericSpine (field.recValue unit)
+genGenericSpine' trail (SigRecord fieldSigs) =
+  SRecord <$> for fieldSigs \field -> do val <- genGenericSpine' trail (field.recValue unit)
                                          pure $ field { recValue = const val }
 
 gArbitrary :: forall a. (Generic a) => Gen a

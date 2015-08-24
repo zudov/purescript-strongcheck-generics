@@ -45,7 +45,7 @@ props_gArbitrary = do
   quickCheck prop_arbitrary_foo_is_foo
   assert assert_uninhabited
   showSample (gArbitrary :: Gen (MyList Int))
-  showSample (resize 5 $ gArbitrary :: Gen (Tree Int))
+  showSample (gArbitrary :: Gen (Tree Int))
 
 main = do
   props_gArbitrary
