@@ -1,6 +1,13 @@
 {
   "name": "purescript-strongcheck-generics",
-  "version": "0.0.0",
+  "license": "BSD3",
+  "authors": [
+    "Konstantin Zudov <konstantin@anche.no>"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/zudov/purescript-strongcheck-generics.git"
+  },
   "moduleType": [
     "node"
   ],
