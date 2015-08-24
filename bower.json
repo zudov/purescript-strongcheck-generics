@@ -13,5 +13,8 @@
   "dependencies": {
     "purescript-generics": "zudov/purescript-generics#spine-validation",
     "purescript-strongcheck": "^0.12.1"
+  },
+  "devDependencies": {
+    "purescript-console": "*"
   }
 }
