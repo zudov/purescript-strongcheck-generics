@@ -12,6 +12,8 @@ import Test.StrongCheck
 import Test.StrongCheck.Gen
 import Test.StrongCheck.Generic
 
+import StrongCheckExample
+
 data Foo = Foo
 derive instance genericFoo :: Generic Foo
 
@@ -61,3 +63,4 @@ props_gArbitrary = do
 
 main = do
   props_gArbitrary
+  exampleMain
