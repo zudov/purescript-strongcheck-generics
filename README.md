@@ -36,6 +36,8 @@ main = do
   showSample (gArbitrary :: Gen (Tree Int))
 ```
 
+[Output](https://travis-ci.org/zudov/purescript-strongcheck-generics/builds/91160401#L733)
+
 ## Documentation
 
 - [Test.StrongCheck.Generic](docs/Test/StrongCheck/Generic.md)
