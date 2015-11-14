@@ -14,7 +14,7 @@ import Prelude
 
 import Control.Plus         (empty)
 import Control.Bind
-import Data.Array           (nub, sortBy, uncons, zipWith, length, filter, (:))
+import Data.Array           (nub, uncons, zipWith, length, filter, (:))
 import Data.Int             (toNumber)
 import Data.Foldable
 import Data.List            (toList)
@@ -35,8 +35,6 @@ gArbitrary = fromJust <<< fromSpine <$> genGenericSpine (toSignature (Proxy :: P
 gCoarbitrary :: forall a r. (Generic a) => a -> Gen r -> Gen r
 gCoarbitrary = go <<< toSpine
   where
-    applyAll :: forall f a. (Foldable f) => f (a -> a) -> a -> a
-    applyAll = runEndo <<< foldMap Endo
     go :: GenericSpine -> Gen r -> Gen r
     go (SArray ss) = applyAll (map (go <<< ($ unit)) ss)
     go (SBoolean b) = coarbitrary b
@@ -46,6 +44,9 @@ gCoarbitrary = go <<< toSpine
     go (SNumber n) = coarbitrary n
     go (SRecord fs) = applyAll (map (\f -> coarbitrary f.recLabel <<< go (f.recValue unit)) fs)
     go (SProd ctor ss) = coarbitrary ctor <<< applyAll (map (go <<< ($ unit)) ss)
+
+applyAll :: forall f a. (Foldable f) => f (a -> a) -> a -> a
+applyAll = runEndo <<< foldMap Endo
 
 -- | Contains representation of an arbitrary value.
 -- | Consists of `GenericSpine` and corresponding `GenericSignature`.
