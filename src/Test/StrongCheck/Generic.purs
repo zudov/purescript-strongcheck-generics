@@ -24,6 +24,7 @@ import Data.Maybe
 import Data.Maybe.Unsafe    (fromJust)
 import Data.Tuple
 import Data.Traversable     (for, traverse)
+import Type.Proxy           (Proxy(..))
 import Test.StrongCheck     (Arbitrary, arbitrary, CoArbitrary, coarbitrary)
 import Test.StrongCheck.Gen
 
@@ -86,9 +87,10 @@ genGenericSignature size = resize (size - 1) $ oneOf sigArray [sigProd, sigRecor
       values <- arrayOf (const <$> sized genGenericSignature)
       pure $ SigRecord $ zipWith { recLabel: _, recValue: _ } labels values
     sigProd = do
+      typeConstr <- arbitrary
       constrs <- nub <$> arrayOf arbitrary
       values  <- arrayOf (arrayOf (const <$> sized genGenericSignature))
-      pure $ SigProd $ zipWith { sigConstructor: _, sigValues: _ } constrs values
+      pure $ SigProd typeConstr $ zipWith { sigConstructor: _, sigValues: _ } constrs values
 
 -- | Generates `GenericSpine`s that conform to provided `GenericSignature`.
 genGenericSpine :: GenericSignature -> Gen GenericSpine
@@ -101,7 +103,7 @@ genGenericSpine' trail SigInt         = SInt     <$> arbitrary
 genGenericSpine' trail SigString      = SString  <$> arbitrary
 genGenericSpine' trail SigChar        = SChar    <$> arbitrary
 genGenericSpine' trail (SigArray sig) = SArray   <$> arrayOf (const <$> genGenericSpine' trail (sig unit))
-genGenericSpine' trail (SigProd sigs) = do
+genGenericSpine' trail (SigProd _ sigs) = do
   alt =<< maybe empty (\cons -> frequency cons.head (toList cons.tail))
                       (uncons $ map (map pure) ctors)
   where
