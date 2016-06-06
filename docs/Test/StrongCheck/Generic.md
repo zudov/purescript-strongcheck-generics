@@ -6,7 +6,7 @@ Generation of arbitrary `GenericSpine`s with corresponding `GenericSignature`s.
 #### `gArbitrary`
 
 ``` purescript
-gArbitrary :: forall a. (Generic a) => Gen a
+gArbitrary :: forall a. Generic a => Gen a
 ```
 
 Generate arbitrary values for any `Generic` data structure
@@ -14,7 +14,7 @@ Generate arbitrary values for any `Generic` data structure
 #### `gCoarbitrary`
 
 ``` purescript
-gCoarbitrary :: forall a r. (Generic a) => a -> Gen r -> Gen r
+gCoarbitrary :: forall a r. Generic a => a -> Gen r -> Gen r
 ```
 
 Perturb a generator using a `Generic` data structure
@@ -30,7 +30,7 @@ Consists of `GenericSpine` and corresponding `GenericSignature`.
 
 ##### Instances
 ``` purescript
-instance arbitraryGenericValue :: Arbitrary GenericValue
+Arbitrary GenericValue
 ```
 
 #### `runGenericValue`
