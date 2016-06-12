@@ -2,17 +2,20 @@ module Test.Main where
 
 import Prelude
 
-import Control.Monad.Trampoline
-import Control.Monad.Eff.Console
-import Data.Generic
+import Control.Monad.Trampoline (runTrampoline)
+
 import Data.Array (null)
 import Data.Foldable (any)
+import Data.Generic (class Generic, gShow)
 
-import Test.StrongCheck
-import Test.StrongCheck.Gen
-import Test.StrongCheck.Generic
+import Partial.Unsafe (unsafePartial)
 
-import StrongCheckExample
+import Test.StrongCheck (SC, quickCheck, assert)
+import Test.StrongCheck.Arbitrary (class Coarbitrary, class Arbitrary)
+import Test.StrongCheck.Gen (Gen, GenState(..), showSample, collectAll)
+import Test.StrongCheck.Generic (gArbitrary, gCoarbitrary)
+
+import StrongCheckExample (exampleMain)
 
 data Foo = Foo
 derive instance genericFoo :: Generic Foo
@@ -25,35 +28,36 @@ prop_arbitrary_foo_is_foo :: Foo -> Boolean
 prop_arbitrary_foo_is_foo Foo = true
 
 data Uninhabited
-derive instance genericUninhabited :: Generic Uninhabited
+derive instance genericUninhabited :: Partial => Generic Uninhabited
 
 -- | Check that `gArbitrary :: Gen Uninhabited` results into an empty generator
 assert_uninhabited :: Boolean
-assert_uninhabited = null $ runTrampoline $ collectAll state (gArbitrary :: Gen Uninhabited)
+assert_uninhabited = unsafePartial $ null $ runTrampoline $ collectAll state (gArbitrary :: Gen Uninhabited)
   where state = GenState { seed: 42.0, size: 42 }
 
 data MyList a = Nil | Cons (MyList a)
-derive instance genericMyList :: (Generic a) => Generic (MyList a)
+derive instance genericMyList :: Generic a => Generic (MyList a)
 
-instance showMyList :: (Generic a) => Show (MyList a) where
+instance showMyList :: Generic a => Show (MyList a) where
   show = gShow
 
 data Tree a = Leaf | Branch { value :: a, kids :: Array (Tree a) }
-derive instance genericTree :: (Generic a) => Generic (Tree a)
+derive instance genericTree :: Generic a => Generic (Tree a)
 
 anywhere :: forall a. (a -> Boolean) -> Tree a -> Boolean
 anywhere _ Leaf = false
 anywhere p (Branch o) = p o.value || any (anywhere p) o.kids
 
-instance showTree :: (Generic a) => Show (Tree a) where
+instance showTree :: Generic a => Show (Tree a) where
   show = gShow
 
-instance arbitraryTree :: (Generic a) => Arbitrary (Tree a) where
+instance arbitraryTree :: Generic a => Arbitrary (Tree a) where
   arbitrary = gArbitrary
 
-instance coarbitraryTree :: (Generic a) => CoArbitrary (Tree a) where
+instance coarbitraryTree :: Generic a => Coarbitrary (Tree a) where
   coarbitrary = gCoarbitrary
 
+props_gArbitrary :: SC () Unit
 props_gArbitrary = do
   quickCheck prop_arbitrary_foo_is_foo
   assert assert_uninhabited
@@ -61,6 +65,7 @@ props_gArbitrary = do
   showSample (gArbitrary :: Gen (Tree Int))
   quickCheck $ \f g t -> anywhere f (t :: Tree Int) || anywhere g t == anywhere (\a -> f a || g a) t
 
+main :: SC () Unit
 main = do
   props_gArbitrary
   exampleMain

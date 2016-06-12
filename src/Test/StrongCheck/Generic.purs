@@ -3,7 +3,7 @@
 module Test.StrongCheck.Generic
   ( gArbitrary
   , gCoarbitrary
-  , GenericValue()
+  , GenericValue
   , genericValue
   , runGenericValue
   , genGenericSignature
@@ -12,41 +12,45 @@ module Test.StrongCheck.Generic
 
 import Prelude
 
-import Control.Plus         (empty)
-import Control.Bind
-import Data.Array           (nub, uncons, zipWith, length, filter, (:))
-import Data.Int             (toNumber)
-import Data.Foldable
-import Data.List            (toList)
-import Data.Monoid.Endo
-import Data.Generic
-import Data.Maybe
-import Data.Maybe.Unsafe    (fromJust)
-import Data.Tuple
-import Data.Traversable     (for, traverse)
-import Type.Proxy           (Proxy(..))
-import Test.StrongCheck     (Arbitrary, arbitrary, CoArbitrary, coarbitrary)
-import Test.StrongCheck.Gen
+import Control.Plus (empty)
+
+import Data.Array (nub, uncons, zipWith, length, filter, (:))
+import Data.Foldable (class Foldable, foldMap)
+import Data.Generic (class Generic, GenericSignature(..), GenericSpine(..), isValidSpine, toSpine, toSignature, fromSpine)
+import Data.Int (toNumber)
+import Data.List (fromFoldable)
+import Data.Maybe (Maybe(..), maybe, fromJust)
+import Data.Monoid.Endo (Endo(..), runEndo)
+import Data.Traversable (for, traverse)
+import Data.Tuple (Tuple(..))
+
+import Partial.Unsafe (unsafePartial)
+
+import Test.StrongCheck.Arbitrary (class Arbitrary, arbitrary, coarbitrary)
+import Test.StrongCheck.Gen (Gen, Size, frequency, arrayOf, oneOf, resize, sized, elements)
+
+import Type.Proxy (Proxy(..))
 
 -- | Generate arbitrary values for any `Generic` data structure
-gArbitrary :: forall a. (Generic a) => Gen a
-gArbitrary = fromJust <<< fromSpine <$> genGenericSpine (toSignature (Proxy :: Proxy a))
+gArbitrary :: forall a. Generic a => Gen a
+gArbitrary = unsafePartial fromJust <<< fromSpine <$> genGenericSpine (toSignature (Proxy :: Proxy a))
 
 -- | Perturb a generator using a `Generic` data structure
-gCoarbitrary :: forall a r. (Generic a) => a -> Gen r -> Gen r
+gCoarbitrary :: forall a r. Generic a => a -> Gen r -> Gen r
 gCoarbitrary = go <<< toSpine
   where
     go :: GenericSpine -> Gen r -> Gen r
-    go (SArray ss) = applyAll (map (go <<< ($ unit)) ss)
+    go (SArray ss) = applyAll (map (go <<< (_ $ unit)) ss)
     go (SBoolean b) = coarbitrary b
     go (SString s) = coarbitrary s
-    go (SChar c)   = coarbitrary c
-    go (SInt i)    = coarbitrary i
+    go (SChar c) = coarbitrary c
+    go (SInt i) = coarbitrary i
     go (SNumber n) = coarbitrary n
     go (SRecord fs) = applyAll (map (\f -> coarbitrary f.recLabel <<< go (f.recValue unit)) fs)
-    go (SProd ctor ss) = coarbitrary ctor <<< applyAll (map (go <<< ($ unit)) ss)
+    go (SProd ctor ss) = coarbitrary ctor <<< applyAll (map (go <<< (_ $ unit)) ss)
+    go SUnit = coarbitrary unit
 
-applyAll :: forall f a. (Foldable f) => f (a -> a) -> a -> a
+applyAll :: forall f a. Foldable f => f (a -> a) -> a -> a
 applyAll = runEndo <<< foldMap Endo
 
 -- | Contains representation of an arbitrary value.
@@ -78,7 +82,7 @@ instance arbitraryGenericValue :: Arbitrary GenericValue where
 genGenericSignature :: Size -> Gen GenericSignature
 genGenericSignature size | size > 5 = genGenericSignature 5
 genGenericSignature 0 = elements SigNumber
-                                 (toList [ SigInt, SigString, SigBoolean ])
+                                 (fromFoldable [ SigInt, SigString, SigBoolean ])
 genGenericSignature size = resize (size - 1) $ oneOf sigArray [sigProd, sigRecord]
   where
     sigArray = SigArray <<< const <$> sized genGenericSignature
@@ -102,16 +106,17 @@ genGenericSpine' trail SigNumber      = SNumber  <$> arbitrary
 genGenericSpine' trail SigInt         = SInt     <$> arbitrary
 genGenericSpine' trail SigString      = SString  <$> arbitrary
 genGenericSpine' trail SigChar        = SChar    <$> arbitrary
+genGenericSpine' trail SigUnit        = pure SUnit
 genGenericSpine' trail (SigArray sig) = SArray   <$> arrayOf (const <$> genGenericSpine' trail (sig unit))
 genGenericSpine' trail (SigProd _ sigs) = do
-  alt =<< maybe empty (\cons -> frequency cons.head (toList cons.tail))
+  alt =<< maybe empty (\cons -> frequency cons.head (fromFoldable cons.tail))
                       (uncons $ map (map pure) ctors)
   where
     trailCount sig = length $ filter ((==) sig.sigConstructor) trail
     probability sig = 6.0 / (5.0 + toNumber (trailCount sig))
     ctors = sigs <#> (\sig -> Tuple (probability sig) sig)
     alt altSig = SProd altSig.sigConstructor
-                   <$> traverse (map const <<< genGenericSpine' (altSig.sigConstructor : trail) <<< (unit #))
+                   <$> traverse (map const <<< genGenericSpine' (altSig.sigConstructor : trail) <<< (unit # _))
                                 altSig.sigValues
 genGenericSpine' trail (SigRecord fieldSigs) =
   SRecord <$> for fieldSigs \field -> do val <- genGenericSpine' trail (field.recValue unit)

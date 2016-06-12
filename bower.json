@@ -18,10 +18,10 @@
     "output"
   ],
   "dependencies": {
-    "purescript-generics": "~0.7.0",
-    "purescript-strongcheck": "~0.14.4"
+    "purescript-generics": "^1.0.0",
+    "purescript-strongcheck": "^1.0.0"
   },
   "devDependencies": {
-    "purescript-console": "^0.1.1"
+    "purescript-console": "^1.0.0"
   }
 }
