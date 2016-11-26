@@ -3,7 +3,6 @@ module Test.Main where
 import Prelude
 
 import Control.Monad.Trampoline (runTrampoline)
-import Control.Monad.Eff.Console as Console
 
 import Data.Array (null)
 import Data.Foldable (any)
@@ -69,6 +68,5 @@ props_gArbitrary = do
 
 main :: SC () Unit
 main = do
-  Console.log "hello world"
-  -- props_gArbitrary
-  -- exampleMain
+  props_gArbitrary
+  exampleMain
