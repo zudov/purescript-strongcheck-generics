@@ -20,7 +20,7 @@ import Data.Generic (class Generic, GenericSignature(..), GenericSpine(..), isVa
 import Data.Int (toNumber)
 import Data.List (fromFoldable)
 import Data.Maybe (Maybe(..), maybe, fromJust)
-import Data.Monoid.Endo (Endo(..), runEndo)
+import Data.Monoid.Endo (Endo(..))
 import Data.Traversable (for, traverse)
 import Data.Tuple (Tuple(..))
 
@@ -51,7 +51,7 @@ gCoarbitrary = go <<< toSpine
     go SUnit = coarbitrary unit
 
 applyAll :: forall f a. Foldable f => f (a -> a) -> a -> a
-applyAll = runEndo <<< foldMap Endo
+applyAll = (case _ of Endo a -> a) <<< foldMap Endo
 
 -- | Contains representation of an arbitrary value.
 -- | Consists of `GenericSpine` and corresponding `GenericSignature`.
