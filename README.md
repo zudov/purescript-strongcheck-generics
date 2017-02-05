@@ -6,6 +6,9 @@
 
 Generic deriving for `Arbitrary`/`CoArbitrary`, and generation of `GenericSpine`/`GenericSignature`.
 
+**Warning:** It was noticed that generating a spine for deeply recursive data structures (particularly those
+that include arrays of themselves) can hang running indefinetely. See [issue 5](https://github.com/zudov/purescript-strongcheck-generics/issues/5) for details.
+
 ## Installation
 
 ```shell

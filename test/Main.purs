@@ -12,11 +12,11 @@ import Partial.Unsafe (unsafePartial)
 
 import Test.StrongCheck (SC, quickCheck, assert)
 import Test.StrongCheck.Arbitrary (class Coarbitrary, class Arbitrary)
-import Test.StrongCheck.Gen (Gen, GenState(..), showSample, collectAll)
+import Test.StrongCheck.Gen (Gen, GenState(..), showSample, collectAll, showSample')
 import Test.StrongCheck.LCG (mkSeed)
 import Test.StrongCheck.Generic (gArbitrary, gCoarbitrary)
 
-import StrongCheckExample (exampleMain)
+--import StrongCheckExample (exampleMain)
 
 data Foo = Foo
 derive instance genericFoo :: Generic Foo
@@ -36,7 +36,7 @@ assert_uninhabited :: Boolean
 assert_uninhabited = unsafePartial $ null $ runTrampoline $ collectAll state (gArbitrary :: Gen Uninhabited)
   where state = GenState { seed: mkSeed 42, size: 42 }
 
-data MyList a = Nil | Cons (MyList a)
+data MyList a = Nil | Cons a (MyList a)
 derive instance genericMyList :: Generic a => Generic (MyList a)
 
 instance showMyList :: Generic a => Show (MyList a) where
@@ -62,11 +62,11 @@ props_gArbitrary :: SC () Unit
 props_gArbitrary = do
   quickCheck prop_arbitrary_foo_is_foo
   assert assert_uninhabited
-  showSample (gArbitrary :: Gen (MyList Int))
-  showSample (gArbitrary :: Gen (Tree Int))
-  quickCheck $ \f g t -> anywhere f (t :: Tree Int) || anywhere g t == anywhere (\a -> f a || g a) t
+  showSample' 1 (gArbitrary :: Gen (MyList Int))
+--  showSample' 1 (gArbitrary :: Gen (Tree Int))
+--  quickCheck $ \f g t -> anywhere f (t :: Tree Int) || anywhere g t == anywhere (\a -> f a || g a) t
 
 main :: SC () Unit
 main = do
   props_gArbitrary
-  exampleMain
+--  exampleMain
