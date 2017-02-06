@@ -1,8 +1,8 @@
 {
   "name": "purescript-strongcheck-generics",
-  "license": "BSD3",
+  "license": "BSD-3-Clause",
   "authors": [
-    "Konstantin Zudov <konstantin@anche.no>"
+    "Konstantin Zudov <co@zudov.me"
   ],
   "repository": {
     "type": "git",
