@@ -130,7 +130,9 @@ genGenericSpine' trail (SigRecord fieldSigs) =
     val <- genGenericSpine' trail $ force fieldSig.recValue
     pure $ fieldSig { recValue = val }
 
-frequencyWith :: forall a f. (Functor f, Foldable f)
+frequencyWith :: forall a f
+               . Functor f
+              => Foldable f
               => (a -> Number)
               -> { head :: a, tail :: f a }
               -> Gen a
