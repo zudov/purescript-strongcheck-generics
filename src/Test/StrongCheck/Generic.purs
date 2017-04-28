@@ -3,9 +3,6 @@
 module Test.StrongCheck.Generic
   ( gArbitrary
   , gCoarbitrary
-  , GenericValue
-  , genericValue
-  , runGenericValue
   , genGenericSignature
   , genGenericSpine
   ) where
@@ -54,34 +51,6 @@ gCoarbitrary = go <<< toSpine
 
 applyAll :: forall f a. Foldable f => f (a -> a) -> a -> a
 applyAll = (case _ of Endo a -> a) <<< foldMap Endo
-
--- | Contains representation of an arbitrary value.
--- | Consists of `GenericSpine` and corresponding `GenericSignature`.
-newtype GenericValue = GenericValue { signature :: GenericSignature
-                                    , spine     :: GenericSpine
-                                    }
-
--- | Extract `GenericSignature` and `GenericSpine` from a `GenericValue`
-runGenericValue :: GenericValue -> { signature :: GenericSignature
-                                   , spine     :: GenericSpine
-                                   }
-runGenericValue (GenericValue val) = val
-
--- | Smart constructor for `GenericValue`. Would become `mzero` if given
--- | `GenericSpine` doesn't conform to given `GenericSignature`
-genericValue
-  :: ∀ m. MonadZero m
-  => GenericSignature -> GenericSpine
-  -> m GenericValue
-genericValue signature spine =
-  GenericValue { signature, spine }
-    <$ guard (isValidSpine signature spine)
-
-instance arbitraryGenericValue :: Arbitrary GenericValue where
-  arbitrary = do
-    signature <- sized genGenericSignature
-    spine <- genGenericSpine signature
-    genericValue signature spine
 
 -- | Generates `GenericSignature`s. Size parameter affects how nested the structure is.
 genGenericSignature :: Size -> Gen GenericSignature
