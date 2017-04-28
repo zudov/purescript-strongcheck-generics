@@ -11,7 +11,7 @@ module Test.StrongCheck.Generic
   ) where
 
 import Prelude
-import Control.Plus (empty)
+import Control.MonadZero (class MonadZero, guard)
 import Data.Array (filter, length, nub, uncons, zipWith, (:))
 import Data.Foldable (class Foldable, fold, foldMap)
 import Data.Generic
@@ -20,7 +20,7 @@ import Data.Generic
   )
 import Data.Int (toNumber)
 import Data.List (fromFoldable)
-import Data.Maybe (Maybe(Nothing, Just), fromJust, maybe)
+import Data.Maybe (fromJust)
 import Data.Monoid (mempty)
 import Data.Monoid.Endo (Endo(..))
 import Data.Profunctor.Strong (second)
@@ -67,18 +67,21 @@ runGenericValue :: GenericValue -> { signature :: GenericSignature
                                    }
 runGenericValue (GenericValue val) = val
 
--- | Smart constructor for `GenericValue`. Would return `Nothing` if given
+-- | Smart constructor for `GenericValue`. Would become `mzero` if given
 -- | `GenericSpine` doesn't conform to given `GenericSignature`
-genericValue :: GenericSignature -> GenericSpine -> Maybe GenericValue
-genericValue signature spine
-  | isValidSpine signature spine = Just $ GenericValue { signature, spine }
-  | otherwise = Nothing
+genericValue
+  :: ∀ m. MonadZero m
+  => GenericSignature -> GenericSpine
+  -> m GenericValue
+genericValue signature spine =
+  GenericValue { signature, spine }
+    <$ guard (isValidSpine signature spine)
 
 instance arbitraryGenericValue :: Arbitrary GenericValue where
   arbitrary = do
     signature <- sized genGenericSignature
     spine <- genGenericSpine signature
-    maybe empty pure $ genericValue signature spine
+    genericValue signature spine
 
 -- | Generates `GenericSignature`s. Size parameter affects how nested the structure is.
 genGenericSignature :: Size -> Gen GenericSignature
