@@ -1,17 +1,15 @@
 module Test.StrongCheck.GenericValue
-  ( GenericValue
+  ( GenericValue(..)
   , genericValue
-  , toSignature
-  , toSpine
   ) where
 
-import Control.Bind               (bind)
-import Control.MonadZero          (class MonadZero, guard)
-import Data.Functor               ((<$))
-import Data.Generic               (GenericSignature, GenericSpine, isValidSpine)
+import Control.Bind (bind)
+import Control.MonadZero (class MonadZero, guard)
+import Data.Functor ((<$))
+import Data.Generic (GenericSignature, GenericSpine, isValidSpine)
+import Data.Newtype (class Newtype)
 import Test.StrongCheck.Arbitrary (class Arbitrary)
-import Test.StrongCheck.Gen       (sized)
-import Test.StrongCheck.Generic   (genGenericSignature, genGenericSpine)
+import Test.StrongCheck.Generic (genGenericSignature, genGenericSpine)
 
 -- | Contains a representation of a value in generic form.
 -- | Consists of `GenericSpine` and corresponding `GenericSignature`.
@@ -21,13 +19,7 @@ newtype GenericValue =
     , spine     :: GenericSpine
     }
 
--- | Get the signature of generic value.
-toSignature :: GenericValue -> GenericSignature
-toSignature (GenericValue a) = a.signature
-
--- | Get the spine of generic value.
-toSpine :: GenericValue -> GenericSpine
-toSpine (GenericValue a) = a.spine
+derive instance newtypeGenericValue :: Newtype GenericValue _
 
 instance arbitraryGenericValue :: Arbitrary GenericValue where
   arbitrary = do
