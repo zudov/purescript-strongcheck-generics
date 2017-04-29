@@ -1,20 +1,17 @@
 module Test.Main where
 
 import Prelude
-
 import Control.Monad.Trampoline (runTrampoline)
-
 import Data.Array (null)
 import Data.Foldable (any)
-import Data.Generic (class Generic, gShow)
-
+import Data.Generic (class Generic, gShow, isValidSpine)
 import Partial.Unsafe (unsafePartial)
-
-import Test.StrongCheck (SC, quickCheck, assert)
+import Test.StrongCheck (SC, arbitrary, assert, quickCheck)
 import Test.StrongCheck.Arbitrary (class Coarbitrary, class Arbitrary)
 import Test.StrongCheck.Gen (Gen, GenState(..), showSample, collectAll, showSample')
-import Test.StrongCheck.LCG (mkSeed)
 import Test.StrongCheck.Generic (gArbitrary, gCoarbitrary)
+import Test.StrongCheck.GenericValue (GenericValue, runGenericValue)
+import Test.StrongCheck.LCG (mkSeed)
 
 --import StrongCheckExample (exampleMain)
 
@@ -66,7 +63,15 @@ props_gArbitrary = do
 --  showSample' 1 (gArbitrary :: Gen (Tree Int))
 --  quickCheck $ \f g t -> anywhere f (t :: Tree Int) || anywhere g t == anywhere (\a -> f a || g a) t
 
+props_GenericValue :: SC () Unit
+props_GenericValue = do
+  quickCheck
+    \v -> let { signature, spine } = runGenericValue v
+          in isValidSpine signature spine
+  showSample' 1 (arbitrary :: Gen GenericValue)
+
 main :: SC () Unit
 main = do
   props_gArbitrary
+  props_GenericValue
 --  exampleMain
