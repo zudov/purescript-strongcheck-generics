@@ -39,13 +39,13 @@ gCoarbitrary :: forall a r. Generic a => a -> Gen r -> Gen r
 gCoarbitrary = go <<< toSpine
   where
     go :: GenericSpine -> Gen r -> Gen r
-    go (SArray ss)     = applyAll (map (go <<< (_ $ unit)) ss)
+    go (SArray ss)     = applyAll (map (go <<< force) ss)
     go (SBoolean b)    = coarbitrary b
     go (SString s)     = coarbitrary s
     go (SChar c)       = coarbitrary c
     go (SInt i)        = coarbitrary i
     go (SNumber n)     = coarbitrary n
-    go (SRecord fs)    = applyAll (map (\f -> coarbitrary f.recLabel <<< go (f.recValue unit)) fs)
+    go (SRecord fs)    = applyAll (map (\f -> coarbitrary f.recLabel <<< go (force f.recValue)) fs)
     go (SProd ctor ss) = coarbitrary ctor <<< applyAll (map (go <<< force) ss)
     go SUnit           = coarbitrary unit
 
