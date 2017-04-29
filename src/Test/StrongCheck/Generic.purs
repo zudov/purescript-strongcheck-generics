@@ -16,6 +16,7 @@ import Data.List (fromFoldable)
 import Data.Maybe (fromJust)
 import Data.Monoid (mempty)
 import Data.Monoid.Endo (Endo(..))
+import Data.Newtype (unwrap)
 import Data.Profunctor.Strong (second)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
@@ -44,7 +45,7 @@ gCoarbitrary = go <<< toSpine
     go SUnit           = coarbitrary unit
 
 applyAll :: forall f a. Foldable f => f (a -> a) -> a -> a
-applyAll = (case _ of Endo a -> a) <<< foldMap Endo
+applyAll = unwrap <<< foldMap Endo
 
 -- | Generates `GenericSignature`s. Size parameter affects how nested the structure is.
 genGenericSignature :: Size -> Gen GenericSignature
