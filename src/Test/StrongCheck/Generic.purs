@@ -26,11 +26,11 @@ import Test.StrongCheck.Gen (Gen, arrayOf, elements, frequency, oneOf, resize, s
 import Type.Proxy (Proxy(..))
 
 -- | Generate arbitrary values for any `Generic` data structure
-gArbitrary :: forall a. Generic a => Gen a
+gArbitrary :: ∀ a. Generic a => Gen a
 gArbitrary = unsafePartial fromJust <<< fromSpine <$> genGenericSpine (toSignature (Proxy :: Proxy a))
 
 -- | Perturb a generator using a `Generic` data structure
-gCoarbitrary :: forall a r. Generic a => a -> Gen r -> Gen r
+gCoarbitrary :: ∀ a r. Generic a => a -> Gen r -> Gen r
 gCoarbitrary = go <<< toSpine
   where
     go :: GenericSpine -> Gen r -> Gen r
@@ -44,7 +44,7 @@ gCoarbitrary = go <<< toSpine
     go (SProd ctor ss) = coarbitrary ctor <<< applyAll (map (go <<< force) ss)
     go SUnit           = coarbitrary unit
 
-applyAll :: forall f a. Foldable f => f (a -> a) -> a -> a
+applyAll :: ∀ f a. Foldable f => f (a -> a) -> a -> a
 applyAll = unwrap <<< foldMap Endo
 
 -- | Generates `GenericSignature`s. Size parameter affects how nested the structure is.
@@ -76,55 +76,49 @@ genGenericSignature = sized go
 
 -- | Generates `GenericSpine`s that conform to provided `GenericSignature`.
 genGenericSpine :: GenericSignature -> Gen GenericSpine
-genGenericSpine = go mempty <<< defer
+genGenericSpine = go mempty
   where
-    go trail signature = case force signature of
+    go trail signature = case signature of
       SigUnit      -> pure SUnit
       SigBoolean   -> SBoolean <$> arbitrary
       SigInt       -> SInt     <$> arbitrary
       SigNumber    -> SNumber  <$> arbitrary
       SigChar      -> SChar    <$> arbitrary
       SigString    -> SString  <$> arbitrary
-      SigArray  a  -> SArray   <$> arrayOf (defer <$> go trail a)
+      SigArray  a  -> SArray   <$> arrayOf (defer <$> go trail (force a))
       SigRecord rs ->
         SRecord <$> for rs \r -> do
-          value <- go trail r.recValue
+          value <- go trail $ force r.recValue
           pure $ r { recValue = defer value }
       SigProd _ dcs -> do
         dc   <- pick dcs
-        vals <- for dc.sigValues (go (breadcrumb dc) >>> map defer)
-        pure $ SProd dc.sigConstructor vals
+        vals <- for dc.sigValues
+                  (force >>> go (dc.sigConstructor : trail))
+        pure $ SProd dc.sigConstructor (defer <$> vals)
       where
-        breadcrumb dc = dc.sigConstructor : trail
+        pick = -- pick one of the constructors
+          fold <<< map (frequencyWith probability) <<< uncons
+          where
+            probability dc = -- probability of picking the constructor
+              6.0 / (5.0 + toNumber (pickCount dc))
+            pickCount dc = -- how many times the constructor was picked
+              length $ filter (eq dc.sigConstructor) trail
 
-        -- pick one of the constructors
-        pick =
-          fold <<< map (frequencyWith likelihood) <<< uncons
-
-        -- probability of picking the constructor
-        likelihood dc =
-          6.0 / (5.0 + toNumber (picked dc))
-
-        -- how many times the constructor was picked
-        picked dc =
-          length $ filter (eq dc.sigConstructor) trail
-
-frequencyWith :: forall a f
-               . Functor f
-              => Foldable f
-              => (a -> Number)
-              -> { head :: a, tail :: f a }
-              -> Gen a
+frequencyWith
+  :: ∀ a f. Functor f => Foldable f
+  => (a -> Number)
+  -> { head :: a, tail :: f a }
+  -> Gen a
 frequencyWith probabilityFn { head, tail } =
-  frequency
-    (second pure $ annotate probabilityFn head)
-    (fromFoldable $ map (second pure <<< annotate probabilityFn) tail)
+  frequency (probGen head) (fromFoldable $ probGen <$> tail)
+  where
+    probGen = second pure <<< annotate probabilityFn
 
-annotate :: forall a b. (a -> b) -> a -> Tuple b a
+annotate :: ∀ a b. (a -> b) -> a -> Tuple b a
 annotate f a = Tuple (f a) a
 
-defer :: forall a b. a -> (b -> a)
+defer :: ∀ a b. a -> (b -> a)
 defer = const
 
-force :: forall a. (Unit -> a) -> a
+force :: ∀ a. (Unit -> a) -> a
 force a = a unit

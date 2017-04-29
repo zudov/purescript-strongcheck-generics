@@ -8,7 +8,7 @@ import Control.Bind (bind)
 import Control.MonadZero (class MonadZero, guard)
 import Data.Eq (class Eq)
 import Data.Functor ((<$))
-import Data.Generic (class Generic, GenericSignature, GenericSpine, isValidSpine)
+import Data.Generic (GenericSignature, GenericSpine, isValidSpine)
 import Data.Semigroup ((<>))
 import Data.Show (class Show, show)
 import Test.StrongCheck.Arbitrary (class Arbitrary)
@@ -16,6 +16,8 @@ import Test.StrongCheck.Generic (genGenericSignature, genGenericSpine)
 
 -- | Contains a representation of a value in generic form.
 -- | Consists of `GenericSpine` and corresponding `GenericSignature`.
+-- |
+-- | Useful for its `Arbitary` instance.
 newtype GenericValue =
   GV { signature :: GenericSignature
      , spine     :: GenericSpine
@@ -46,7 +48,8 @@ instance arbitraryGenericValue :: Arbitrary GenericValue where
 -- | `GenericSpine` doesn't conform to given `GenericSignature`.
 genericValue
   :: ∀ m. MonadZero m
-  => GenericSignature -> GenericSpine
+  => GenericSignature
+  -> GenericSpine
   -> m GenericValue
 genericValue signature spine =
   GV { signature, spine } <$ guard (isValidSpine signature spine)
