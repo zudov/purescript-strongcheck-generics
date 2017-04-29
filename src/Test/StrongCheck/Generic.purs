@@ -8,13 +8,9 @@ module Test.StrongCheck.Generic
   ) where
 
 import Prelude
-import Control.MonadZero (class MonadZero, guard)
 import Data.Array (filter, length, nub, uncons, zipWith, (:))
 import Data.Foldable (class Foldable, fold, foldMap)
-import Data.Generic
-  ( class Generic, GenericSignature(..), GenericSpine(..), DataConstructor
-  , fromSpine, isValidSpine, toSignature, toSpine
-  )
+import Data.Generic (class Generic, GenericSignature(..), GenericSpine(..), fromSpine, toSignature, toSpine)
 import Data.Int (toNumber)
 import Data.List (fromFoldable)
 import Data.Maybe (fromJust)
@@ -24,10 +20,8 @@ import Data.Profunctor.Strong (second)
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Partial.Unsafe (unsafePartial)
-import Test.StrongCheck.Arbitrary
-  ( class Arbitrary, arbitrary, coarbitrary )
-import Test.StrongCheck.Gen
-  ( Gen, Size, arrayOf, elements, frequency, oneOf, resize, sized )
+import Test.StrongCheck.Arbitrary (arbitrary, coarbitrary)
+import Test.StrongCheck.Gen (Gen, Size, arrayOf, elements, frequency, oneOf, resize, sized)
 import Type.Proxy (Proxy(..))
 
 -- | Generate arbitrary values for any `Generic` data structure
@@ -76,31 +70,38 @@ genGenericSignature size
 
 -- | Generates `GenericSpine`s that conform to provided `GenericSignature`.
 genGenericSpine :: GenericSignature -> Gen GenericSpine
-genGenericSpine = map force <<< genGenericSpine' mempty
-
-genGenericSpine' :: Array String -> GenericSignature -> Gen (Unit -> GenericSpine)
-genGenericSpine' trail SigBoolean     = defer <<< SBoolean <$> arbitrary
-genGenericSpine' trail SigNumber      = defer <<< SNumber  <$> arbitrary
-genGenericSpine' trail SigInt         = defer <<< SInt     <$> arbitrary
-genGenericSpine' trail SigString      = defer <<< SString  <$> arbitrary
-genGenericSpine' trail SigChar        = defer <<< SChar    <$> arbitrary
-genGenericSpine' trail SigUnit        = pure $ defer SUnit
-genGenericSpine' trail (SigArray sig) =
-  defer <<< SArray <$> arrayOf (genGenericSpine' trail (force sig))
-genGenericSpine' trail (SigProd _ constructors) = defer <$> do
-  { sigConstructor, sigValues } <- fold (frequencyWith probability <$> uncons constructors)
-  spines <- for sigValues (force >>> genGenericSpine' (sigConstructor : trail))
-  pure $ SProd sigConstructor spines
+genGenericSpine = go mempty <<< defer
   where
-    probability a = 6.0 / (5.0 + toNumber (trailCount a))
+    go trail signature = case force signature of
+      SigUnit      -> pure SUnit
+      SigBoolean   -> SBoolean <$> arbitrary
+      SigInt       -> SInt     <$> arbitrary
+      SigNumber    -> SNumber  <$> arbitrary
+      SigChar      -> SChar    <$> arbitrary
+      SigString    -> SString  <$> arbitrary
+      SigArray  a  -> SArray   <$> arrayOf (defer <$> go trail a)
+      SigRecord rs ->
+        SRecord <$> for rs \r -> do
+          value <- go trail r.recValue
+          pure $ r { recValue = defer value }
+      SigProd _ dcs -> do
+        dc   <- pick dcs
+        vals <- for dc.sigValues (go (breadcrumb dc) >>> map defer)
+        pure $ SProd dc.sigConstructor vals
       where
-        -- | How many times the given `DataConstructor` has already been used
-        trailCount :: DataConstructor -> Int
-        trailCount { sigConstructor } = length $ filter (eq sigConstructor) trail
-genGenericSpine' trail (SigRecord fieldSigs) =
-  defer <<< SRecord <$> for fieldSigs \fieldSig -> do
-    val <- genGenericSpine' trail $ force fieldSig.recValue
-    pure $ fieldSig { recValue = val }
+        breadcrumb dc = dc.sigConstructor : trail
+
+        -- pick one of the constructors
+        pick =
+          fold <<< map (frequencyWith likelihood) <<< uncons
+
+        -- probability of picking the constructor
+        likelihood dc =
+          6.0 / (5.0 + toNumber (picked dc))
+
+        -- how many times the constructor was picked
+        picked dc =
+          length $ filter (eq dc.sigConstructor) trail
 
 frequencyWith :: forall a f
                . Functor f
