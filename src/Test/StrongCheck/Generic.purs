@@ -22,7 +22,7 @@ import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Partial.Unsafe (unsafePartial)
 import Test.StrongCheck.Arbitrary (arbitrary, coarbitrary)
-import Test.StrongCheck.Gen (Gen, Size, arrayOf, elements, frequency, oneOf, resize, sized)
+import Test.StrongCheck.Gen (Gen, arrayOf, elements, frequency, oneOf, resize, sized)
 import Type.Proxy (Proxy(..))
 
 -- | Generate arbitrary values for any `Generic` data structure
@@ -48,26 +48,31 @@ applyAll :: forall f a. Foldable f => f (a -> a) -> a -> a
 applyAll = unwrap <<< foldMap Endo
 
 -- | Generates `GenericSignature`s. Size parameter affects how nested the structure is.
-genGenericSignature :: Size -> Gen GenericSignature
-genGenericSignature size
-  | size > 5 = genGenericSignature 5
-  | size == 0 =
-      elements SigNumber $ fromFoldable [ SigInt, SigString, SigBoolean ]
-  | otherwise = resize (size - 1) $ oneOf sigArray [ sigProd, sigRecord ]
+genGenericSignature :: Gen GenericSignature
+genGenericSignature = sized go
   where
-    sigArray = SigArray <<< defer <$> sized genGenericSignature
-    sigRecord = do
-      labels <- nub <$> arrayOf arbitrary
-      values <- arrayOf (defer <$> sized genGenericSignature)
-      let fields = zipWith { recLabel: _, recValue: _ } labels values
-      pure $ SigRecord fields
-    sigProd = do
-      typeConstructor <- arbitrary
-      constructors <- nub <$> arrayOf arbitrary
-      values  <- arrayOf (arrayOf (const <$> sized genGenericSignature))
-      let dataConstructors = zipWith { sigConstructor: _, sigValues: _ }
-                               constructors values
-      pure $ SigProd typeConstructor dataConstructors
+    go 0 =
+      elements SigNumber $ fromFoldable [ SigInt, SigString, SigBoolean ]
+    go size =
+      resize (min 5 size - 1) compound
+      where
+        recur = defer <$> sized go
+        compound = oneOf sigArray [ sigProd, sigRecord ]
+          where
+            sigArray = SigArray <$> recur
+            sigRecord = do
+              labels <- nub <$> arrayOf arbitrary
+              values <- arrayOf recur
+              pure $ SigRecord
+                   $ zipWith { recLabel: _, recValue: _ }
+                       labels values
+            sigProd = do
+              type_   <- arbitrary
+              constrs <- nub <$> arrayOf arbitrary
+              values  <- arrayOf (arrayOf recur)
+              pure $ SigProd type_
+                   $ zipWith { sigConstructor: _, sigValues: _ }
+                               constrs values
 
 -- | Generates `GenericSpine`s that conform to provided `GenericSignature`.
 genGenericSpine :: GenericSignature -> Gen GenericSpine

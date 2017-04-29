@@ -31,7 +31,7 @@ toSpine (GenericValue a) = a.spine
 
 instance arbitraryGenericValue :: Arbitrary GenericValue where
   arbitrary = do
-    signature <- sized genGenericSignature
+    signature <- genGenericSignature
     spine     <- genGenericSpine signature
     genericValue signature spine
 
