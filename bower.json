@@ -4,9 +4,10 @@
   "authors": [
     "Konstantin Zudov <co@zudov.me"
   ],
+  "keywords": ["pursuit-deprecated"],
   "repository": {
     "type": "git",
-    "url": "git://github.com/zudov/purescript-strongcheck-generics.git"
+    "url": "https://github.com/zudov/purescript-strongcheck-generics.git"
   },
   "moduleType": [
     "node"
